@@ -50,9 +50,6 @@ while True:
       print "stock pull request received for %s from %s" % (rcvd['symbol'], rcvd['clientname'])
       pulled_stocks = []
 
-      for row in c.execute("select * from stocks"):
-          print row
-
       for row in c.execute("SELECT * FROM stocks WHERE symbol = '%s' order by timestamp" % rcvd['symbol']):
           pulled_stocks.append(row)
       message = json.dumps(pulled_stocks)
@@ -116,7 +113,7 @@ while True:
     elif rcvd['type'] == 'gui_get_companies':
 	print "received query for list of companies"
 	companyList = []
-	
+
 	for row in c.execute("select distinct company from tweets"):
 		companyList.append(row[0])
 

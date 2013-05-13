@@ -125,11 +125,13 @@ class graphanalysis:
        else:
          print "Not related"
          return
-    self.dtarr = [y[1] for y in cor_list]
-    self.arr = [x[0] for x in cor_list]
+    #self.dtarr = [y[1] for y in cor_list]
+    #self.arr = [x[0] for x in cor_list]
     data = np.array([[y[1] for y in cor_list], [x[0] for x in cor_list]])
     cor_coe = np.corrcoef(data)
     print "The correlation coefficient number is ", cor_coe
+
+    return cor_coe
     
     """
     print cor_list
@@ -296,16 +298,16 @@ if __name__ == "__main__":
   print "twt times within stk?"
   print stk.starts_within(twt)
   print "interpolate the graph"
-  #twt.interpolate(10)
+  twt.interpolate(10)
   print "plot it!"
-  #twt.run_plot()
+  twt.run_plot()
 
   # example of showing stocks based on twitter date data
   stk.run_plot(twt.length(), stk.starts_within(twt))
   
-  #stk.correlation(twt)
-  #stk.run_plot()
-  #stk.run_plot(twt.length(), stk.starts_within(twt))
+  stk.correlation(twt)
+  stk.run_plot()
+  stk.run_plot(twt.length(), stk.starts_within(twt))
 
   # example of showing stocks based on arbritrary date selection
   #dt = datetime(2013,1,30)

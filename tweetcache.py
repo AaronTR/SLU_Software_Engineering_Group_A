@@ -17,7 +17,7 @@ S_RESULTS_PER_PAGE="&rpp=100"
 S_SINCE_ID="&since_id="
 S_MAX_ID="&max_id="
 S_PAGE_NUM="&page="
-S_LANG = "%20lang%3Aen"
+S_LANG = "&lang=en"
 
 #numeric constants
 N_RESULTS_PER_PAGE=100

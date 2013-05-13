@@ -6,7 +6,7 @@ import sys
 import pprint
 import numpy
 
-TICKER_SYMBOL_DICT = {'google':'GOOG', 'ibm':'IBM', 'amazon':'AMZN', 'microsoft':'MSFT'}
+TICKER_SYMBOL_DICT = {'google':'GOOG', 'ibm':'IBM', 'amazon':'AMZN', 'microsoft':'MSFT', 'dell':'DELL'}
 
 def main(serverAddress, company):
       #company = sys.argv[2]

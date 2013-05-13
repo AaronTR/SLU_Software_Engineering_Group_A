@@ -6,10 +6,7 @@ import zmq
 import urllib2
 import json
 import graphanalysis as g
-from datetime import datetime, date
-
-#string constants
-ALPHANUMERIC_UNDERSCORE = "^[a-zA-Z0-9_ ]*$"
+import datetime
 
 #alert number constants
 ALERT_INVALID_INPUT = 0
@@ -20,12 +17,10 @@ ALERT_FAILED_GET_TWEETS = 4
 ALERT_FAILED_FINANCE_INFO = 5
 ALERT_DATE_RANGE_ERROR = 6
 
-MAX_LENGTH_COMPANY_NAME = 32
-
 ALERT_ARRAY = ["Invalid Input", "No Network Connection", "Server Problems", \
 		"Sentiment Analyzer Failure", "Aaron's Fault...", "Floundering Financials", "Invalid Date Range"]
 
-TICKER_SYMBOL_DICT = {'Goog':'GOOG', 'Samsung':'IBM', 'Sony':'SNE', 'Microsoft':'MSFT', 'Dell':'DELL'}
+TICKER_SYMBOL_DICT = {'Google':'GOOG', 'Ibm':'IBM', 'Sony':'SNE', 'Microsoft':'MSFT', 'Dell':'DELL', 'Amazon':'AMZN'}
 
 
 class Application(Frame):
@@ -131,9 +126,7 @@ class Application(Frame):
 		self.endDateLabel = Label(self.parent, text="End Date:")
 
 		self.companyListBox = Listbox(self.parent)
-		
 		self.startDateListBox = Listbox(self.parent)
-
 		self.endDateListBox = Listbox(self.parent)
 
 		companies = self.refreshCompanyList()
@@ -154,11 +147,8 @@ class Application(Frame):
 		self.endDateDrop = OptionMenu(self.parent, self.listVariableEndDate, *self.listEndDates)
 
 		self.addButton = Button(self.parent, text="+", command=self.addCompany)
-
 		self.retrieveDataButton = Button(self.parent, text="Get My Data", command=self.retrieveData)
-
 		self.refreshButton = Button(self.parent, text="Refresh Company List", command=self.refreshCompanyList)
-
 		self.deleteButton = Button(self.parent, text="-", command=self.deleteSelectedCompany)
 
 	
@@ -168,7 +158,17 @@ class Application(Frame):
 		for c in companyInfo:
 			index = self.companiesAdded.index(c)
 			sd = self.startDatesAdded[index]
-			newListView = self.ListView(self, c, companyInfo[c][0], companyInfo[c][1], companyInfo[c][2], rowOffset=offset, startDate=sd)
+			ed = self.endDatesAdded[index]
+
+			sdt = datetime.datetime(int(sd[0:4]), int(sd[5:7]), int(sd[8:10]))
+			edt = datetime.datetime(int(ed[0:4]), int(ed[5:7]), int(ed[8:10]))
+
+			diff = edt - sdt
+			timeDelta = diff.days
+
+			corrCoeff = self.calculateCorrelation(c, sdt, timeDelta)
+
+			newListView = self.ListView(self, c, companyInfo[c][0], companyInfo[c][1], companyInfo[c][2], rowOffset=offset, startDate=sdt, timeDelta=timeDelta, corrCoeff=corrCoeff)
 			self.listViewList.append(newListView)
 			offset = offset + 1
 
@@ -287,9 +287,8 @@ class Application(Frame):
 		self.parent.after(250, self.onCompanySelect)
 
 	
-	def showStockGraph(self, company, daterange):
+	def showStockGraph(self, company, startDate, timeDelta):
 		## retreive stock dataset
-		print daterange
 		dataset = {'type' : 'stock_pull', 'symbol' : TICKER_SYMBOL_DICT[company], 'clientname' : 'graphanalysis_test'}
 		message = json.dumps(dataset)
 		socket = self.createSocket()
@@ -300,15 +299,13 @@ class Application(Frame):
 
 		stk = g.graphanalysis(rcvd, 'stock')
 		stk.interpolate(10)
-		#dt = datetime(2013,4,4)
-		stk.run_plot()
+		stk.run_plot(timeDelta, stk.get_date_loc(startDate))
 
 		return 0
 
 	
-	def showTweetGraph(self, company, daterange):
-		print daterange
-		dataset = {'type' : 'avgSentiment_pull', 'symbol' : company.lower(), 'dateRange' : 'doesntmatter', 'clientname' : 'graphanalysis_test'}
+	def showTweetGraph(self, company, startDate, timeDelta):
+		dataset = {'type' : 'avgSentiment_pull', 'symbol' : TICKER_SYMBOL_DICT[company], 'dateRange' : 'doesntmatter', 'clientname' : 'graphanalysis_test'}
 		message = json.dumps(dataset)
 		socket = self.createSocket()
 		socket.send(message)
@@ -317,16 +314,16 @@ class Application(Frame):
 		rcvd = json.loads(message)
 
 		twt = g.graphanalysis(rcvd, 'tweet')
-		#dt = datetime(2013,4,4)
-		twt.run_plot()
+		twt.interpolate(10)
+		twt.run_plot(timeDelta, twt.get_date_loc(startDate))
+		#twt.run_plot()
 
 		return 0
 
 
-	def showCorrelationGraph(self, company, daterange):
+	def calculateCorrelation(self, company, startDate, timeDelta):
 		## retreive stock dataset
-		print daterange
-		dataset = {'type' : 'stock_pull', 'symbol' : company.lower(), 'clientname' : 'graphanalysis_test'}
+		dataset = {'type' : 'stock_pull', 'symbol' : TICKER_SYMBOL_DICT[company], 'clientname' : 'graphanalysis_test'}
 		message = json.dumps(dataset)
 		socket = self.createSocket()
 		socket.send(message)
@@ -337,7 +334,7 @@ class Application(Frame):
 		stk = g.graphanalysis(rcvd, 'stock')
 		stk.interpolate(10)
 
-		dataset = {'type' : 'avgSentiment_pull', 'symbol' : company.lower(), 'dateRange' : 'doesntmatter', 'clientname' : 'graphanalysis_test'}
+		dataset = {'type' : 'avgSentiment_pull', 'symbol' : TICKER_SYMBOL_DICT[company], 'dateRange' : 'doesntmatter', 'clientname' : 'graphanalysis_test'}
 		message = json.dumps(dataset)
 		socket = self.createSocket()
 		socket.send(message)
@@ -347,13 +344,9 @@ class Application(Frame):
 
 		twt = g.graphanalysis(rcvd, 'tweet')
 
-		print twt.starts_within(stk)
-		print stk.starts_within(twt)
-		#dt = datetime(int(daterange[0:4]),int(daterange[5:7]),int(daterange[8-10]))
-		dt = datetime(2013,4,4)
-		stk.run_plot(8, stk.get_date_loc(dt))
-
-		return 0
+		corrCoeff = stk.correlation(twt)
+		print corrCoeff
+		return corrCoeff[0][1]
 
 
 
@@ -374,7 +367,7 @@ class Application(Frame):
 
 	class ListView:
 		
-		def __init__(self, app, company, numTweets, posTweets, negTweets, rowOffset=0, startDate=0):
+		def __init__(self, app, company, numTweets, posTweets, negTweets, corrCoeff=0, timeDelta=0, rowOffset=0, startDate=0):
 			self.app = app
 			self.parent = app.parent
 			self.company = company
@@ -383,6 +376,8 @@ class Application(Frame):
 			self.negTweets = negTweets
 			self.rowOffset = rowOffset
 			self.startDate = startDate
+			self.corrCoeff = corrCoeff
+			self.timeDelta = timeDelta
 
 			self.createDisplayObjects()
 
@@ -394,18 +389,20 @@ class Application(Frame):
 			self.negTweetsLabel = Label(self.parent, text="Neg: %s" % (self.negTweets))
 			self.stockGraphButton = Button(self.parent, text="Stock Graph", command=self.showStockGraph)
 			self.tweetGraphButton = Button(self.parent, text="Tweet Graphs", command=self.showTweetGraph)
-			self.correlationGraphButton = Button(self.parent, text="Correlation Graph", command=self.showCorrelationGraph)
+			self.correlationLabel = Label(self.parent, text="Correlation Coefficient: %s" % (self.corrCoeff))
+			#self.correlationGraphButton = Button(self.parent, text="Correlation Graph", command=self.showCorrelationGraph)
 
 		def display(self):
 			row = 2*self.rowOffset
 			self.backgroundLabel.grid(row=row, column=0, columnspan=5, rowspan=2, padx=(25,0), pady=(15,0), stick=N+S+W+E)
 			self.companyLabel.grid(row=row, column=0, columnspan=1, rowspan=1, padx=(25,0), pady=(15,0), sticky=W+N)
-			self.tweetsLabel.grid(row=row+1, column=1, columnspan=1, rowspan=1, padx=5, sticky=W+N)
+			self.tweetsLabel.grid(row=row+1, column=1, columnspan=1, rowspan=1, padx=5, sticky=E+N)
 			self.posTweetsLabel.grid(row=row+1, column=2, columnspan=1, rowspan=1, padx=5, sticky=W+N)
 			self.negTweetsLabel.grid(row=row+1, column=3, columnspan=1, rowspan=1, padx=5, sticky=W+N)
-			self.stockGraphButton.grid(row=row, column=4, columnspan=1, rowspan=1, padx=5, pady=(15,0), sticky=W+N)
-			self.tweetGraphButton.grid(row=row, column=3, columnspan=1, rowspan=1, padx=5, pady=(15,0), sticky=W+N)
-			self.correlationGraphButton.grid(row=row, column=2, columnspan=1, rowspan=1, padx=5, pady=(15,0), stick=W+N)
+			self.stockGraphButton.grid(row=row, column=3, columnspan=1, rowspan=1, padx=5, pady=(15,0), sticky=W+N)
+			self.tweetGraphButton.grid(row=row, column=2, columnspan=1, rowspan=1, padx=5, pady=(15,0), sticky=W+N)
+			self.correlationLabel.grid(row=row, column=1, columnspan=1, rowspan=1, padx=5, pady=(15,0), sticky=W+N)
+			#self.correlationGraphButton.grid(row=row, column=2, columnspan=1, rowspan=1, padx=5, pady=(15,0), stick=W+N)
 
 		def forget(self):
 			self.backgroundLabel.grid_forget()
@@ -415,16 +412,17 @@ class Application(Frame):
 			self.negTweetsLabel.grid_forget()
 			self.stockGraphButton.grid_forget()
 			self.tweetGraphButton.grid_forget()
-			self.correlationGraphButton.grid_forget()
+			#self.correlationGraphButton.grid_forget()
+			self.correlationLabel.grid_forget()
 
 		def showStockGraph(self):
-			self.app.showStockGraph(self.company, self.startDate)
+			self.app.showStockGraph(self.company, self.startDate, self.timeDelta)
 
 		def showTweetGraph(self):
-			self.app.showTweetGraph(self.company, self.startDate)
+			self.app.showTweetGraph(self.company, self.startDate, self.timeDelta)
 
-		def showCorrelationGraph(self):
-			self.app.showCorrelationGraph(self.company, self.startDate)
+		#def showCorrelationGraph(self):
+		#	self.app.showCorrelationGraph(self.company, self.startDate)
 
 
 
